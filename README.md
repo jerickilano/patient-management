@@ -2,13 +2,21 @@
 
 A small, production-style **microservices** system for managing patients, built from scratch as a learning project.
 
-It demonstrates:
+Demonstrates:
 - Java 21, Spring Boot, Spring Cloud Gateway
 - REST + gRPC service-to-service communication
 - JWT-based authentication
 - PostgreSQL for data storage
 - Kafka for event-driven communication
 - Docker + docker-compose to run everything locally
+
+Learning Points:
+
+1. Designing a small but realistic microservices architecture (gateway + auth + domain + consumer).
+2. Implementing JWT-based authentication and securing APIs.
+3. Using Kafka for asynchronous, event-driven communication between services.
+4. Exposing both REST and gRPC interfaces for service-to-service communication.
+5. Containerizing services and wiring them together with Docker Compose for local development.
 
 ---
 
@@ -41,3 +49,69 @@ High-level flow:
 - **Auth:** JWT bearer tokens
 - **Service-to-Service:** REST + gRPC
 - **Containerization:** Docker, docker-compose
+
+---
+
+## Services
+
+### API Gateway
+- Routes `/auth/**` to Auth Service and `/patients/**` to Patient Service.
+- Validates JWT tokens on protected routes.
+
+### Auth Service
+- Endpoints:
+  - `POST /auth/register` – create new user account
+  - `POST /auth/login` – verify credentials and return JWT
+- Stores users and hashed passwords in PostgreSQL.
+
+### Patient Service
+- Endpoints (behind gateway):
+  - `POST /patients` – create patient
+  - `GET /patients/{id}` – get patient by id
+  - `GET /patients` – list patients (basic pagination)
+- Publishes `PATIENT_CREATED` messages to Kafka.
+- Exposes a small **gRPC API** for internal calls (e.g. `GetPatientSummary`).
+
+### Notification Service
+- Kafka consumer for `PATIENT_CREATED`.
+- Logs a simple message like:  
+  `Sending welcome notification to patient {id}`
+
+---
+
+## Running Locally
+
+### Prerequisites
+- Java 21
+- Docker + Docker Desktop
+- Git
+
+### Steps
+
+```bash
+# Clone the repo
+git clone https://github.com/<your-username>/patient-microservices.git
+cd patient-microservices
+
+# Start infrastructure + services
+docker compose up --build
+
+---
+
+### Register User
+curl -X POST http://localhost:8080/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"password123"}'
+
+### Login and get JWT
+curl -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"password123"}'
+
+### Create Patient
+curl -X POST http://localhost:8080/patients \
+  -H "Authorization: Bearer <jwt-from-login>" \
+  -H "Content-Type: application/json" \
+  -d '{"firstName":"Alice","lastName":"Nguyen","dateOfBirth":"1995-06-01"}'
+
+---
