@@ -31,6 +31,11 @@ The system is intentionally scoped to be small but realistic, focusing on clean 
 
 ## 3. Architecture
 
+### Development
+![Spring Boot Architecture](/img/Development.png)
+### Spring Boot
+![Spring Boot Architecture](/img/Architecture.png)
+
 The system follows a **microservices** architecture with a single entry point:
 
 - **API Gateway (Spring Cloud Gateway)**
@@ -54,6 +59,9 @@ The system follows a **microservices** architecture with a single entry point:
   - Simulates downstream behavior by logging a “welcome notification” for the patient
 
 All services are containerized and run together via `docker-compose.yml`.
+
+### Deployment
+![Deployment Architecture](/img/Deployment.png)
 
 ---
 
