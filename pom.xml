@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+    ============================================================================
+    DEVPLAN PHASE 1.1: ROOT PROJECT STRUCTURE
+    ============================================================================
+    This file implements Phase 1.1 - Root Project Structure from DEVPLAN.md
+    
+    Creates parent POM with Java 21, Spring Boot 3.x, Spring Cloud dependencies
+    Sets up multi-module structure with shared parent configuration
+    
+    ============================================================================
+    
+    PARENT POM.XML - Understanding Multi-Module Maven Projects
+    
+    This is the "parent" POM (Project Object Model) file. In Maven, a parent POM allows us to:
+    1. Define common dependencies and versions for all child modules
+    2. Avoid repeating configuration across multiple modules
+    3. Manage versions in one place (DRY principle - Don't Repeat Yourself)
+    
+    Think of this as a "template" that all our microservices will inherit from.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    
+    <!-- 
+        MODEL VERSION: This tells Maven which version of the POM specification we're using.
+        Version 4.0.0 is the current standard. This rarely changes.
+    -->
+    <modelVersion>4.0.0</modelVersion>
+    
+    <!-- 
+        GROUP ID: This is like a "package name" for your project. It's typically:
+        - Reverse domain notation (com.yourcompany.project)
+        - Used to uniquely identify your project in Maven repositories
+        - All modules will share this groupId
+    -->
+    <groupId>com.patientmanagement</groupId>
+    
+    <!-- 
+        ARTIFACT ID: This is the name of your project. 
+        - Usually lowercase with hyphens
+        - This will be the name of the JAR file if you build it
+    -->
+    <artifactId>patient-management</artifactId>
+    
+    <!-- 
+        VERSION: The version of your project. 
+        - SNAPSHOT means it's still in development (Maven will check for updates)
+        - Remove SNAPSHOT when you release (e.g., 1.0.0)
+    -->
+    <version>1.0.0-SNAPSHOT</version>
+    
+    <!-- 
+        PACKAGING: "pom" means this parent project doesn't produce a JAR/WAR itself.
+        It's just a container for managing child modules. Other options: jar, war, ear
+    -->
+    <packaging>pom</packaging>
+    
+    <!-- 
+        NAME & DESCRIPTION: Human-readable information about the project.
+        These appear in documentation and Maven reports.
+    -->
+    <name>Patient Management Microservices</name>
+    <description>
+        A learning project demonstrating microservices architecture with Spring Boot,
+        featuring API Gateway, Auth Service, Patient Service, and Notification Service.
+    </description>
+    
+    <!-- 
+        MODULES: This is where we list all our microservices as child modules.
+        Maven will build them in the order listed here.
+        Each module has its own pom.xml in a subdirectory.
+    -->
+    <modules>
+        <module>api-gateway</module>
+        <module>auth-service</module>
+        <module>patient-service</module>
+        <module>notification-service</module>
+    </modules>
+    
+    <!-- 
+        PROPERTIES: Centralized version management.
+        Instead of hardcoding versions everywhere, we define them once here.
+        This makes it easy to upgrade libraries across all services.
+        
+        Why Java 21?
+        - Latest LTS (Long Term Support) version
+        - Better performance, new language features
+        - Spring Boot 3.x requires Java 17+
+    -->
+    <properties>
+        <!-- Java version: 21 is the latest LTS (Long Term Support) release -->
+        <java.version>21</java.version>
+        
+        <!-- 
+            Maven Compiler Plugin version: This plugin compiles Java code.
+            We specify it explicitly to ensure consistent builds.
+        -->
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        
+        <!-- 
+            Project encoding: UTF-8 ensures proper handling of international characters.
+            Always use UTF-8 in modern projects.
+        -->
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        
+        <!-- 
+            Spring Boot version: 3.2.x is the latest stable version.
+            Spring Boot provides auto-configuration, embedded servers, and many integrations.
+        -->
+        <spring-boot.version>3.2.0</spring-boot.version>
+        
+        <!-- 
+            Spring Cloud version: Must be compatible with Spring Boot version.
+            Spring Cloud provides tools for building distributed systems (gateway, config server, etc.)
+        -->
+        <spring-cloud.version>2023.0.0</spring-cloud.version>
+    </properties>
+    
+    <!-- 
+        DEPENDENCY MANAGEMENT: This section defines versions for dependencies that child modules will use.
+        Child modules can reference these dependencies WITHOUT specifying versions.
+        This ensures all services use the same library versions (important for compatibility).
+        
+        Note: This doesn't ADD dependencies to child modules, it just manages versions.
+        Each child module still needs to declare which dependencies it actually uses.
+    -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- 
+                SPRING BOOT DEPENDENCIES BOM (Bill of Materials)
+                
+                BOM is a special POM that lists versions of all Spring Boot dependencies.
+                By importing this, we get version management for ALL Spring Boot libraries.
+                This is a best practice - ensures all Spring libraries are compatible.
+            -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+                <!-- 
+                    Scope "import" means: import all dependency versions from this BOM.
+                    This is only valid in dependencyManagement section.
+                -->
+            </dependency>
+            
+            <!-- 
+                SPRING CLOUD DEPENDENCIES BOM
+                
+                Similar to Spring Boot BOM, this manages versions for Spring Cloud libraries.
+                Spring Cloud Gateway, Service Discovery, Config Server, etc.
+            -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+    
+    <!-- 
+        BUILD SECTION: Configuration for how Maven builds the project.
+        This applies to all child modules unless they override it.
+    -->
+    <build>
+        <!-- 
+            PLUGINS: Tools that Maven runs during the build lifecycle.
+            Plugins can compile code, run tests, package JARs, etc.
+        -->
+        <plugins>
+            <!-- 
+                MAVEN COMPILER PLUGIN
+                
+                This plugin compiles Java source code into bytecode (.class files).
+                We configure it to use Java 21 and UTF-8 encoding.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <!-- Source code is written in Java 21 -->
+                    <source>${java.version}</source>
+                    <!-- Compiled bytecode targets Java 21 JVM -->
+                    <target>${java.version}</target>
+                    <!-- Encoding for source files -->
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                </configuration>
+            </plugin>
+            
+            <!-- 
+                SPRING BOOT MAVEN PLUGIN
+                
+                This plugin is essential for Spring Boot applications. It:
+                1. Packages the application as an executable JAR (includes embedded server)
+                2. Provides the "spring-boot:run" goal to run the app directly
+                3. Creates a "fat JAR" with all dependencies included
+                
+                Without this, you'd need to manually manage classpath and run the app differently.
+            -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring-boot.version}</version>
+                <configuration>
+                    <!-- 
+                        Exclude devtools from production builds.
+                        DevTools is useful for development (auto-restart, live reload) 
+                        but shouldn't be in production JARs.
+                    -->
+                    <excludes>
+                        <exclude>
+                            <groupId>org.springframework.boot</groupId>
+                            <artifactId>spring-boot-devtools</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

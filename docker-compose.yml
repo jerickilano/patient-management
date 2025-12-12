@@ -1,0 +1,369 @@
+# ============================================================================
+# DEVPLAN PHASE 1.2: DOCKER INFRASTRUCTURE
+# ============================================================================
+# This file implements Phase 1.2 - Docker Infrastructure from DEVPLAN.md
+#
+# Creates docker-compose.yml with:
+# - PostgreSQL containers (separate databases for auth-service and patient-service)
+# - Kafka + Zookeeper containers
+# - Network configuration for service communication
+# - Environment variables for database credentials
+# - Health checks and proper service dependencies
+# ============================================================================
+#
+# docker-compose.yml - Container Orchestration Configuration
+#
+# WHAT IS DOCKER COMPOSE?
+# Docker Compose is a tool for defining and running multi-container Docker applications.
+# Instead of running "docker run" commands manually for each service, you define
+# everything in this YAML file and run "docker compose up" to start everything.
+#
+# WHY USE IT?
+# 1. Single command to start all services: "docker compose up"
+# 2. Automatic networking between containers
+# 3. Environment variable management
+# 4. Health checks and dependency management
+# 5. Easy to replicate the same setup across different machines
+#
+# VERSION: Specifies the Docker Compose file format version.
+# Version 3.8 supports most modern Docker features we need.
+version: '3.8'
+
+# SERVICES: Each service is a container that will be created and run.
+# Think of services as the different components of your application.
+services:
+  
+  # ============================================
+  # POSTGRESQL DATABASE FOR AUTH SERVICE
+  # ============================================
+  # This database stores user accounts, passwords (hashed), and roles.
+  # We use a separate database for Auth Service to follow microservices principles:
+  # - Each service owns its data (database per service pattern)
+  # - Services can scale independently
+  # - Failure in one service doesn't affect others' databases
+  postgres-auth:
+    # IMAGE: The Docker image to use. This pulls PostgreSQL 15 from Docker Hub.
+    # PostgreSQL 15 is a stable, well-supported version.
+    image: postgres:15-alpine
+    
+    # CONTAINER NAME: A friendly name for this container.
+    # Makes it easier to reference in commands: "docker logs postgres-auth"
+    container_name: postgres-auth
+    
+    # ENVIRONMENT VARIABLES: Configuration passed to the container.
+    # PostgreSQL uses these to set up the database on first startup.
+    environment:
+      # POSTGRES_DB: Creates a database with this name when container starts
+      # This is the database name that our Auth Service will connect to.
+      POSTGRES_DB: ${POSTGRES_AUTH_DB:-auth_db}
+      
+      # POSTGRES_USER: Creates a database user with this name
+      # This user will have permissions to access the database.
+      POSTGRES_USER: ${POSTGRES_AUTH_USER:-auth_user}
+      
+      # POSTGRES_PASSWORD: Sets the password for the database user
+      # ${VAR:-default} syntax means: use VAR from .env file, or "default" if not set
+      # In production, ALWAYS set this via .env file with a strong password!
+      POSTGRES_PASSWORD: ${POSTGRES_AUTH_PASSWORD:-change-this-password}
+    
+    # PORTS: Maps container ports to host machine ports.
+    # Format: "host_port:container_port"
+    # This allows you to connect to PostgreSQL from your host machine (for debugging).
+    # In production, you might remove this and only allow internal Docker network access.
+    ports:
+      - "5433:5432"  # Host port 5433 -> Container port 5432 (PostgreSQL default)
+    
+    # VOLUMES: Persistent storage for database data.
+    # Without volumes, all data would be lost when the container stops!
+    # 
+    # Named volume: "postgres-auth-data" is managed by Docker
+    # Mount point: /var/lib/postgresql/data is where PostgreSQL stores its data files
+    volumes:
+      - postgres-auth-data:/var/lib/postgresql/data
+    
+    # NETWORKS: Which Docker network this container joins.
+    # Containers on the same network can communicate using service names as hostnames.
+    networks:
+      - patient-management-network
+    
+    # HEALTH CHECK: Docker periodically checks if the service is healthy.
+    # This is useful for:
+    # - docker compose to know when a service is ready
+    # - Other services to wait for dependencies
+    healthcheck:
+      # Command to run: Use PostgreSQL's pg_isready utility
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_AUTH_USER:-auth_user}"]
+      # Check every 10 seconds
+      interval: 10s
+      # Timeout after 5 seconds
+      timeout: 5s
+      # Retry up to 5 times before marking as unhealthy
+      retries: 5
+      # Wait 5 seconds before starting health checks
+      start_period: 5s
+
+  # ============================================
+  # POSTGRESQL DATABASE FOR PATIENT SERVICE
+  # ============================================
+  # Separate database for Patient Service (same pattern as Auth Service).
+  # This follows the "Database per Service" microservices pattern.
+  postgres-patient:
+    image: postgres:15-alpine
+    container_name: postgres-patient
+    environment:
+      POSTGRES_DB: ${POSTGRES_PATIENT_DB:-patient_db}
+      POSTGRES_USER: ${POSTGRES_PATIENT_USER:-patient_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PATIENT_PASSWORD:-change-this-password}
+    ports:
+      - "5434:5432"  # Different host port to avoid conflict with auth DB
+    volumes:
+      - postgres-patient-data:/var/lib/postgresql/data
+    networks:
+      - patient-management-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_PATIENT_USER:-patient_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ============================================
+  # ZOOKEEPER (Required by Kafka)
+  # ============================================
+  # WHAT IS ZOOKEEPER?
+  # Zookeeper is a coordination service used by Kafka to:
+  # - Manage Kafka broker metadata
+  # - Track which broker is the leader for each partition
+  # - Store consumer group offsets
+  # - Handle broker failures and leader election
+  #
+  # WHY IS IT NEEDED?
+  # Kafka uses Zookeeper for distributed coordination. Without it, Kafka can't
+  # manage its cluster state. (Note: Newer Kafka versions are moving away from
+  # Zookeeper, but it's still common in production.)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      # ZOOKEEPER_CLIENT_PORT: Port where Zookeeper listens for client connections
+      ZOOKEEPER_CLIENT_PORT: 2181
+      
+      # ZOOKEEPER_TICK_TIME: Basic time unit in milliseconds used by Zookeeper
+      # Used for heartbeats and timeouts. Default is 2000ms.
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"  # Expose Zookeeper port (useful for debugging)
+    networks:
+      - patient-management-network
+    healthcheck:
+      # Check if Zookeeper is responding
+      test: ["CMD-SHELL", "echo stat | nc localhost 2181 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ============================================
+  # APACHE KAFKA (Message Broker)
+  # ============================================
+  # WHAT IS KAFKA?
+  # Kafka is a distributed event streaming platform. Think of it as a "message queue on steroids."
+  # 
+  # HOW IT WORKS:
+  # 1. Producers (like Patient Service) publish messages to "topics"
+  # 2. Consumers (like Notification Service) subscribe to topics and receive messages
+  # 3. Messages are stored and can be replayed
+  # 4. Multiple consumers can read the same messages (different consumer groups)
+  #
+  # WHY USE KAFKA?
+  # - Decouples services (Patient Service doesn't need to know about Notification Service)
+  # - Handles high throughput
+  # - Messages are persisted (not lost if consumer is down)
+  # - Supports multiple consumers (scalability)
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    # DEPENDS_ON: Ensures Zookeeper starts before Kafka.
+    # Kafka needs Zookeeper to be running to function.
+    depends_on:
+      zookeeper:
+        condition: service_healthy  # Wait until Zookeeper health check passes
+    environment:
+      # KAFKA_BROKER_ID: Unique identifier for this Kafka broker.
+      # In a cluster, each broker has a different ID (1, 2, 3, etc.)
+      # For single broker (our case), use ID 1.
+      KAFKA_BROKER_ID: 1
+      
+      # KAFKA_ZOOKEEPER_CONNECT: Where to find Zookeeper.
+      # Format: hostname:port
+      # "zookeeper" is the service name (Docker Compose DNS resolution)
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      
+      # KAFKA_ADVERTISED_LISTENERS: Address that clients use to connect to Kafka.
+      # This is CRITICAL - clients will use this address, not localhost!
+      # "kafka:9092" means: connect using service name "kafka" on port 9092
+      # This works because all services are on the same Docker network.
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      
+      # KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: Maps listener names to security protocols.
+      # PLAINTEXT means no encryption (fine for local dev, use SSL in production).
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      
+      # KAFKA_INTER_BROKER_LISTENER_NAME: How brokers communicate with each other.
+      # In a multi-broker cluster, brokers need to talk to each other.
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      
+      # KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: How many copies of consumer offset data.
+      # Replication factor of 1 means only one copy (fine for single broker).
+      # In production with multiple brokers, use 3 for high availability.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      
+      # KAFKA_AUTO_CREATE_TOPICS_ENABLE: Automatically create topics when first used.
+      # Set to "true" for development convenience.
+      # In production, create topics manually with proper configuration.
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"  # Expose Kafka port (for debugging, monitoring tools)
+    networks:
+      - patient-management-network
+    healthcheck:
+      # Use Kafka's kafka-broker-api-versions command to check health
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s  # Kafka takes longer to start
+
+  # ============================================
+  # API GATEWAY SERVICE
+  # ============================================
+  # The entry point for all client requests. Routes traffic to internal services.
+  api-gateway:
+    # BUILD: Build the Docker image from source code in this directory.
+    # This tells Docker Compose to:
+    # 1. Look for a Dockerfile in ./api-gateway directory
+    # 2. Build the image before starting the container
+    # 3. Use that image to run the container
+    build:
+      context: ./api-gateway  # Directory containing Dockerfile
+      dockerfile: Dockerfile
+    
+    container_name: api-gateway
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"  # Expose gateway to host (this is the public entry point)
+    environment:
+      # Pass environment variables to the Spring Boot application
+      # These will be available as Java system properties or environment variables
+      JWT_SECRET: ${JWT_SECRET}
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-service:8081}
+      PATIENT_SERVICE_URL: ${PATIENT_SERVICE_URL:-http://patient-service:8082}
+    # DEPENDS_ON: Wait for databases and Kafka to be healthy before starting.
+    # This ensures infrastructure is ready when the service starts.
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+      postgres-patient:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - patient-management-network
+    # RESTART POLICY: Automatically restart container if it crashes.
+    # "unless-stopped" means: restart always, unless manually stopped.
+    restart: unless-stopped
+
+  # ============================================
+  # AUTH SERVICE
+  # ============================================
+  # Handles user registration, login, and JWT token generation.
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - "${AUTH_SERVICE_PORT:-8081}:8081"
+    environment:
+      # Database connection settings
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_AUTH_HOST:-postgres-auth}:${POSTGRES_AUTH_PORT:-5432}/${POSTGRES_AUTH_DB:-auth_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_AUTH_USER:-auth_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_AUTH_PASSWORD:-change-this-password}
+      # JWT configuration
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-3600000}
+      # Server port
+      SERVER_PORT: ${AUTH_SERVICE_PORT:-8081}
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+    networks:
+      - patient-management-network
+    restart: unless-stopped
+
+  # ============================================
+  # PATIENT SERVICE
+  # ============================================
+  # Handles patient CRUD operations and publishes events to Kafka.
+  patient-service:
+    build:
+      context: ./patient-service
+      dockerfile: Dockerfile
+    container_name: patient-service
+    ports:
+      - "${PATIENT_SERVICE_PORT:-8082}:8082"
+    environment:
+      # Database connection settings
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_PATIENT_HOST:-postgres-patient}:${POSTGRES_PATIENT_PORT:-5432}/${POSTGRES_PATIENT_DB:-patient_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_PATIENT_USER:-patient_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PATIENT_PASSWORD:-change-this-password}
+      # Kafka configuration
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      # Server port
+      SERVER_PORT: ${PATIENT_SERVICE_PORT:-8082}
+    depends_on:
+      postgres-patient:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - patient-management-network
+    restart: unless-stopped
+
+  # ============================================
+  # NOTIFICATION SERVICE
+  # ============================================
+  # Consumes Kafka events and processes notifications.
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service
+    environment:
+      # Kafka configuration
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - patient-management-network
+    restart: unless-stopped
+
+# ============================================
+# VOLUMES
+# ============================================
+# Named volumes for persistent data storage.
+# Volumes survive container restarts and deletions.
+# This is where PostgreSQL stores database files.
+volumes:
+  postgres-auth-data:      # Persistent storage for Auth Service database
+  postgres-patient-data:   # Persistent storage for Patient Service database
+
+# ============================================
+# NETWORKS
+# ============================================
+# Docker network that allows all services to communicate with each other.
+# Services can reach each other using service names as hostnames.
+# Example: "http://auth-service:8081" resolves to the auth-service container.
+networks:
+  patient-management-network:
+    driver: bridge  # Bridge network (default, allows containers to communicate)

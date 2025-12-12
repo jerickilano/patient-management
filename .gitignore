@@ -1,0 +1,142 @@
+# ============================================================================
+# DEVPLAN PHASE 1.1: ROOT PROJECT STRUCTURE
+# ============================================================================
+# This file implements Phase 1.1 - Root Project Structure from DEVPLAN.md
+# 
+# Creates .gitignore (Java, Maven, Docker, IDE files, .env)
+# ============================================================================
+#
+# .gitignore - Files to Exclude from Version Control
+#
+# Git uses this file to know which files should NOT be tracked in the repository.
+# This is important for:
+# 1. Security: Don't commit secrets, passwords, API keys
+# 2. Performance: Don't track generated files, build artifacts
+# 3. Cleanliness: Don't track IDE-specific files, OS files
+
+# ============================================
+# ENVIRONMENT & SECRETS
+# ============================================
+# NEVER commit these! They contain sensitive information.
+.env                    # Environment variables with secrets (JWT keys, DB passwords, etc.)
+.env.local             # Local overrides
+.env.*.local           # Any local environment files
+
+# ============================================
+# JAVA & MAVEN BUILD ARTIFACTS
+# ============================================
+# These are generated during the build process. No need to track them.
+
+# Maven build output directory
+# When you run "mvn compile" or "mvn package", Maven creates a "target" folder
+# with compiled classes, JARs, test results, etc. This is regenerated on every build.
+target/                 # All Maven build outputs
+**/target/              # Target folders in any subdirectory (for multi-module projects)
+
+# Compiled Java bytecode (.class files)
+*.class                # Individual class files (though usually in target/)
+
+# JAR files (unless they're dependencies you're manually managing)
+*.jar                  # Java Archive files
+*.war                  # Web Archive files (for web applications)
+*.ear                  # Enterprise Archive files
+*.nar                  # NAR files
+
+# ============================================
+# IDE (Integrated Development Environment) FILES
+# ============================================
+# Different developers use different IDEs (IntelliJ, Eclipse, VS Code, etc.)
+# Each IDE creates its own configuration files. We don't want to force everyone
+# to use the same IDE, so we exclude these files.
+
+# IntelliJ IDEA (JetBrains)
+.idea/                 # IntelliJ project settings, run configurations, etc.
+*.iml                  # IntelliJ module file
+*.iws                  # IntelliJ workspace settings
+*.ipr                  # IntelliJ project file
+
+# Eclipse
+.classpath             # Eclipse classpath configuration
+.project               # Eclipse project file
+.settings/             # Eclipse workspace settings
+.metadata/             # Eclipse metadata
+
+# VS Code
+.vscode/               # VS Code settings (unless you want to share settings)
+*.code-workspace       # VS Code workspace file
+
+# NetBeans
+nbproject/             # NetBeans project files
+build/                 # NetBeans build directory
+
+# ============================================
+# OPERATING SYSTEM FILES
+# ============================================
+# These are created by the operating system, not by your code.
+
+# macOS
+.DS_Store              # macOS folder metadata (already in your repo, but good to ignore)
+.AppleDouble           # macOS resource fork
+.LSOverride            # macOS launch services override
+._*                    # macOS resource fork files
+
+# Windows
+Thumbs.db              # Windows thumbnail cache
+ehthumbs.db            # Windows thumbnail cache (Vista+)
+Desktop.ini            # Windows folder customization
+$RECYCLE.BIN/          # Windows recycle bin
+*.lnk                  # Windows shortcuts
+
+# Linux
+*~                     # Backup files created by some editors
+.directory             # KDE folder metadata
+
+# ============================================
+# LOG FILES
+# ============================================
+# Applications generate log files at runtime. These can get very large
+# and change frequently, so we don't track them.
+*.log                  # General log files
+*.log.*                # Rotated log files (log.1, log.2, etc.)
+logs/                  # Log directory
+**/logs/               # Log directories anywhere
+
+# ============================================
+# DOCKER FILES
+# ============================================
+# Docker-related files that shouldn't be committed
+
+# Docker Compose override files (for local development)
+docker-compose.override.yml
+docker-compose.local.yml
+
+# ============================================
+# TEST & COVERAGE REPORTS
+# ============================================
+# Test results and coverage reports are generated, not source code.
+
+# Maven Surefire (test runner) reports
+surefire-reports/      # Test execution reports
+test-output/           # Test output directory
+
+# Coverage reports (JaCoCo, Cobertura, etc.)
+coverage/              # Coverage report directory
+*.exec                 # JaCoCo execution data file
+.nyc_output/           # NYC (Istanbul) coverage output
+
+# ============================================
+# TEMPORARY & BACKUP FILES
+# ============================================
+*.tmp                  # Temporary files
+*.temp                 # Temporary files
+*.bak                  # Backup files
+*.swp                  # Vim swap files
+*.swo                  # Vim swap files
+*~                     # Backup files (Emacs, etc.)
+
+# ============================================
+# PACKAGE MANAGER FILES (if you add Node.js later)
+# ============================================
+node_modules/          # npm/yarn dependencies (if you add frontend later)
+package-lock.json      # npm lock file (optional - some teams commit this)
+yarn.lock              # yarn lock file (optional)

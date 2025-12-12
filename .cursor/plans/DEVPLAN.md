@@ -67,6 +67,13 @@ patient-management/
 
 ## Implementation Phases
 
+Create parent POM, multi-module structure, .gitignore, and .env.example with educational comments
+Create docker-compose.yml with PostgreSQL, Kafka, Zookeeper with detailed comments
+Build Auth Service with extensive line-by-line educational comments
+Build API Gateway with detailed comments explaining routing and JWT validation
+Build Patient Service with CRUD, Kafka publishing, and educational comments
+Build Notification Service with Kafka consumer and detailed explanations
+
 ### Phase 1: Project Setup & Infrastructure
 
 **1.1 Root Project Structure**
