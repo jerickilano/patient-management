@@ -1,0 +1,84 @@
+# ============================================================================
+# DEVPLAN PHASE 3.2 & 3.4: ROUTE CONFIGURATION & APPLICATION CONFIGURATION
+# ============================================================================
+# This file implements:
+# - Phase 3.2 - Route Configuration from DEVPLAN.md
+#   Route /auth/** → http://auth-service:8081
+#   Route /patients/** → http://patient-service:8082 (with JWT validation)
+#   Public route for /auth/** (no JWT required)
+#
+# - Phase 3.4 - Application Configuration from DEVPLAN.md
+#   Gateway port: 8080 (public entry point)
+#   Service URLs via environment variables
+# ============================================================================
+#
+# API GATEWAY CONFIGURATION
+
+server:
+  # Gateway listens on port 8080 (public entry point)
+  port: ${GATEWAY_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+  
+  # ============================================
+  # GATEWAY ROUTE CONFIGURATION
+  # ============================================
+  # This section defines how requests are routed to backend services.
+  cloud:
+    gateway:
+      routes:
+        # ============================================
+        # ROUTE 1: Auth Service
+        # ============================================
+        # Routes all /auth/** requests to the Auth Service
+        - id: auth-service
+          # URI: Target service URL
+          # ${AUTH_SERVICE_URL} comes from environment variable
+          # Format: http://service-name:port
+          # "auth-service" is the Docker Compose service name
+          uri: ${AUTH_SERVICE_URL:http://auth-service:8081}
+          # PREDICATES: Conditions that must be true for this route to match
+          predicates:
+            # Path predicate: Match requests starting with /auth/
+            # Examples: /auth/register, /auth/login, /auth/health
+            - Path=/auth/**
+          # FILTERS: Modify the request before forwarding
+          filters:
+            # StripPrefix: Remove /auth from the path before forwarding
+            # Example: /auth/login -> /login (forwarded to Auth Service)
+            # Why? Auth Service expects /auth/register, but gateway already matched /auth
+            # Actually, we want to keep /auth, so we don't use StripPrefix
+            # Auth Service controller has @RequestMapping("/auth"), so it expects /auth/register
+            # So we forward /auth/register as-is to http://auth-service:8081/auth/register
+        
+        # ============================================
+        # ROUTE 2: Patient Service
+        # ============================================
+        # Routes all /patients/** requests to the Patient Service
+        - id: patient-service
+          uri: ${PATIENT_SERVICE_URL:http://patient-service:8082}
+          predicates:
+            # Match requests starting with /patients/
+            - Path=/patients/**
+          # No filters needed - forward path as-is
+          # Note: This route requires authentication (handled by JwtAuthenticationFilter)
+
+# ============================================
+# JWT CONFIGURATION
+# ============================================
+# MUST match Auth Service JWT secret!
+# Otherwise, tokens created by Auth Service won't be validated.
+jwt:
+  secret: ${JWT_SECRET:your-super-secret-jwt-key-change-this-in-production-minimum-32-characters}
+  expiration: ${JWT_EXPIRATION:3600000}
+
+# ============================================
+# LOGGING
+# ============================================
+logging:
+  level:
+    root: INFO
+    com.patientmanagement.gateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG
