@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+    ============================================================================
+    DEVPLAN PHASE 4.1: PATIENT SERVICE SETUP
+    ============================================================================
+    This file implements Phase 4.1 - Service Setup from DEVPLAN.md
+    
+    Creates patient-service/ module with Spring Boot
+    Configures PostgreSQL connection (separate database)
+    Sets up Spring Data JPA
+    ============================================================================
+    
+    PATIENT SERVICE POM.XML -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    
+    <modelVersion>4.0.0</modelVersion>
+    
+    <parent>
+        <groupId>com.patientmanagement</groupId>
+        <artifactId>patient-management</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+    
+    <artifactId>patient-service</artifactId>
+    <packaging>jar</packaging>
+    
+    <name>Patient Service</name>
+    <description>Patient CRUD service with Kafka event publishing</description>
+    
+    <dependencies>
+        <!-- Spring Boot Web - REST API -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        
+        <!-- Spring Data JPA - Database access -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        
+        <!-- PostgreSQL Driver -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        
+        <!-- 
+            SPRING KAFKA
+            Provides integration with Apache Kafka for event publishing.
+            
+            WHAT IS KAFKA?
+            Kafka is a distributed event streaming platform.
+            We'll use it to publish "patient created" events that other services can consume.
+            
+            WHY USE KAFKA?
+            - Decouples services (Patient Service doesn't need to know about Notification Service)
+            - Asynchronous processing (non-blocking)
+            - Scalable (can handle high throughput)
+            - Durable (messages are persisted)
+        -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+        
+        <!-- Validation -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        
+        <!-- DevTools -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+        
+        <!-- Testing -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
