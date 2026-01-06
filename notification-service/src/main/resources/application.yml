@@ -1,0 +1,63 @@
+# ============================================================================
+# DEVPLAN PHASE 5.1 & 5.2: SERVICE SETUP & KAFKA CONSUMER CONFIGURATION
+# ============================================================================
+# This file implements:
+# - Phase 5.1 - Service Setup from DEVPLAN.md
+#   Configure Spring Kafka consumer
+#
+# - Phase 5.2 - Kafka Consumer from DEVPLAN.md
+#   Subscribe to patient-created topic
+# ============================================================================
+#
+# NOTIFICATION SERVICE CONFIGURATION
+
+spring:
+  application:
+    name: notification-service
+  
+  # ============================================
+  # KAFKA CONFIGURATION
+  # ============================================
+  kafka:
+    # BOOTSTRAP SERVERS: Kafka broker addresses
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    
+    # ============================================
+    # CONSUMER CONFIGURATION
+    # ============================================
+    # Consumer reads messages from Kafka topics
+    consumer:
+      # GROUP ID: Consumer group identifier
+      # All consumers with the same group ID share the work of processing messages
+      # If you have 3 instances with the same group ID, Kafka distributes messages among them
+      # Different group IDs = each instance processes all messages (broadcast mode)
+      group-id: notification-service-group
+      
+      # KEY DESERIALIZER: How to deserialize the message key (String)
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      
+      # VALUE DESERIALIZER: How to deserialize the message value (String - JSON)
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      
+      # AUTO OFFSET RESET: What to do when there's no stored offset
+      # "earliest": Read from the beginning of the topic
+      # "latest": Only read new messages (default)
+      # "none": Throw exception if no offset found
+      auto-offset-reset: earliest
+      
+      # ENABLE AUTO COMMIT: Automatically commit offsets after processing
+      # If false, you must manually acknowledge messages
+      # For simplicity, we use auto-commit
+      enable-auto-commit: true
+      
+      # AUTO COMMIT INTERVAL: How often to commit offsets (in milliseconds)
+      auto-commit-interval: 1000
+
+# ============================================
+# LOGGING
+# ============================================
+logging:
+  level:
+    root: INFO
+    com.patientmanagement.notification: DEBUG
+    org.springframework.kafka: DEBUG
