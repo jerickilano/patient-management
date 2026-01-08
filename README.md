@@ -4,7 +4,7 @@ A small, **production-style backend system** for managing patients, built to dem
 
 ---
 
-## What This Project Demonstrates (Resume-Ready)
+## What This Project Demonstrates
 
 - **Java 21**, **Spring Boot**, **Spring Security**
 - **REST APIs** with validation, pagination, sorting, filtering
@@ -12,7 +12,7 @@ A small, **production-style backend system** for managing patients, built to dem
 - **API Gateway** (Spring Cloud Gateway) for routing + auth enforcement
 - **PostgreSQL** with **Spring Data JPA**
 - **Docker + docker-compose** for one-command local boot
-- **Testing** (unit + integration) and API documentation (OpenAPI/Swagger)
+- **Testing** (unit + integration) and API documentation
 
 ---
 
@@ -118,14 +118,14 @@ This system is intentionally scoped to “small but real”:
 
 ## Security Model
 
-### Authentication (AuthN)
+### Authentication
 - JWT is passed as: `Authorization: Bearer <token>`
 - Token includes:
   - `sub` (userId)
   - `role` (USER/ADMIN)
   - `iat`, `exp`
 
-### Authorization (AuthZ / RBAC)
+### Authorization
 - Patient Service enforces roles:
   - USER: read/create only
   - ADMIN: full CRUD
