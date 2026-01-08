@@ -1,80 +1,177 @@
-# Patient Management Microservices (Java + Spring Boot)
+# Patient Management Platform (Java + Spring Boot)
 
-A small, production-style **microservices** system for managing patients, built from scratch as a learning project.
+A small, **production-style backend system** for managing patients, built to demonstrate strong backend fundamentals with clean architecture, security, and deployment practices.
 
-Demonstrates:
-- Java 21, Spring Boot, Spring Cloud Gateway
-- REST + gRPC service-to-service communication
-- JWT-based authentication
-- PostgreSQL for data storage
-- Kafka for event-driven communication
-- Docker + docker-compose to run everything locally
+---
 
-Learning Points:
+## What This Project Demonstrates (Resume-Ready)
 
-1. Designing a small but realistic microservices architecture (gateway + auth + domain + consumer).
-2. Implementing JWT-based authentication and securing APIs.
-3. Using Kafka for asynchronous, event-driven communication between services.
-4. Exposing both REST and gRPC interfaces for service-to-service communication.
-5. Containerizing services and wiring them together with Docker Compose for local development.
+- **Java 21**, **Spring Boot**, **Spring Security**
+- **REST APIs** with validation, pagination, sorting, filtering
+- **JWT Authentication + Role-Based Authorization (RBAC)**
+- **API Gateway** (Spring Cloud Gateway) for routing + auth enforcement
+- **PostgreSQL** with **Spring Data JPA**
+- **Docker + docker-compose** for one-command local boot
+- **Testing** (unit + integration) and API documentation (OpenAPI/Swagger)
 
 ---
 
 ## Architecture Overview
 
-The system is composed of four services:
+This system is intentionally scoped to “small but real”:
 
-- **API Gateway** – entry point for all client traffic, routes to internal services and validates JWT tokens.
-- **Auth Service** – handles user registration/login and issues JWT bearer tokens.
-- **Patient Service** – CRUD operations for patients, stores data in PostgreSQL, and publishes `PATIENT_CREATED` events to Kafka.
-- **Notification Service** – consumes Kafka events and logs a “welcome notification” (simulating email/SMS).
+### Services
 
-High-level flow:
+1) **API Gateway**
+- Single entry point for clients
+- Routes:
+  - `/auth/**` → Auth Service
+  - `/patients/**` → Patient Service
+- Validates JWT on protected routes
+- Extracts identity from JWT and forwards to downstream services via headers
 
-1. Client registers/logs in via **Auth Service** and receives a JWT.
-2. Client calls **API Gateway** with the JWT in the `Authorization: Bearer <token>` header.
-3. Gateway forwards the request to **Patient Service**.
-4. Patient Service writes to **PostgreSQL** and publishes a `PATIENT_CREATED` event to **Kafka**.
-5. **Notification Service** consumes the event and logs a notification.
+2) **Auth Service**
+- Handles user registration + login
+- Hashes passwords (BCrypt)
+- Issues JWTs with claims (userId, role, expiration)
+
+3) **Patient Service**
+- Patient CRUD + pagination/sorting/filtering
+- Enforces authorization rules (RBAC)
+- Persists patients to PostgreSQL using JPA
+- Uses identity headers from gateway (e.g., `X-User-Id`) for auditing
+
+---
+
+## High-Level Request Flow
+
+1) **Register**  
+   Client → Gateway → Auth Service → stores user in Postgres  
+2) **Login**  
+   Client → Gateway → Auth Service → returns `JWT`  
+3) **Create Patient**  
+   Client → Gateway validates JWT → forwards to Patient Service  
+   Gateway adds identity headers (e.g., `X-User-Id`, `X-User-Role`)  
+4) **Patient Service**
+   - validates request body
+   - enforces RBAC rules
+   - persists patient to Postgres
+   - returns created patient response
 
 ---
 
 ## Tech Stack
 
 - **Language:** Java 21
-- **Framework:** Spring Boot, Spring Web, Spring Security, Spring Data JPA
-- **API Gateway:** Spring Cloud Gateway
-- **Data Storage:** PostgreSQL (Docker container)
-- **Messaging:** Apache Kafka (Docker container)
-- **Auth:** JWT bearer tokens
-- **Service-to-Service:** REST + gRPC
-- **Containerization:** Docker, docker-compose
+- **Framework:** Spring Boot, Spring Security
+- **Gateway:** Spring Cloud Gateway
+- **Database:** PostgreSQL
+- **ORM:** Spring Data JPA
+- **Auth:** JWT (Bearer token), BCrypt password hashing
+- **Testing:** JUnit 5, Spring Boot Test
+- **Deployment:** Docker + docker-compose
 
 ---
 
-## Services
+## API Endpoints
 
-### API Gateway
-- Routes `/auth/**` to Auth Service and `/patients/**` to Patient Service.
-- Validates JWT tokens on protected routes.
+### Auth Service (via Gateway)
 
-### Auth Service
-- Endpoints:
-  - `POST /auth/register` – create new user account
-  - `POST /auth/login` – verify credentials and return JWT
-- Stores users and hashed passwords in PostgreSQL.
+**POST `/auth/register`**
+- Creates a user account
+- Stores hashed password
+- Optionally returns a JWT (or requires login separately)
 
-### Patient Service
-- Endpoints (behind gateway):
-  - `POST /patients` – create patient
-  - `GET /patients/{id}` – get patient by id
-  - `GET /patients` – list patients (basic pagination)
-- Publishes `PATIENT_CREATED` messages to Kafka.
-- Exposes a small **gRPC API** for internal calls (e.g. `GetPatientSummary`).
+**POST `/auth/login`**
+- Validates credentials
+- Returns JWT
 
-### Notification Service
-- Kafka consumer for `PATIENT_CREATED`.
-- Logs a simple message like:  
-  `Sending welcome notification to patient {id}`
+**GET `/auth/health`**
+- Simple health endpoint
+
+### Patient Service (protected via Gateway)
+
+**POST `/patients`**
+- Create a patient
+- Requires valid JWT
+- Example rules:
+  - USER: can create and read
+  - ADMIN: can create/read/update/delete
+
+**GET `/patients/{id}`**
+- Get patient by id
+
+**GET `/patients`**
+- List patients with pagination + sorting + filtering
+- Example query params:
+  - `page`, `size`
+  - `sort=createdAt,desc`
+  - `lastName=Smith` (filter)
+
+**PUT `/patients/{id}`**
+- Update patient (ADMIN only)
+
+**DELETE `/patients/{id}`**
+- Delete patient (ADMIN only)
 
 ---
+
+## Security Model
+
+### Authentication (AuthN)
+- JWT is passed as: `Authorization: Bearer <token>`
+- Token includes:
+  - `sub` (userId)
+  - `role` (USER/ADMIN)
+  - `iat`, `exp`
+
+### Authorization (AuthZ / RBAC)
+- Patient Service enforces roles:
+  - USER: read/create only
+  - ADMIN: full CRUD
+- You can implement this with:
+  - Spring Security annotations (`@PreAuthorize`)
+  - or custom filter that reads `X-User-Role` header
+
+### Identity Propagation (Gateway → Services)
+After validating the JWT, Gateway forwards identity to internal services:
+- `X-User-Id: <uuid-or-id>`
+- `X-User-Role: USER|ADMIN`
+
+This proves you understand how real systems pass identity through layers without re-validating everywhere.
+
+---
+
+## Data Model (Example)
+
+### User (Auth DB)
+- `id`
+- `email` (unique)
+- `passwordHash`
+- `role` (USER/ADMIN)
+- `createdAt`
+
+### Patient (Patient DB)
+- `id`
+- `firstName`
+- `lastName`
+- `dob`
+- `phone`
+- `email`
+- `createdAt`
+- `createdByUserId` (from `X-User-Id`) ✅
+
+---
+
+## Error Handling (Professional API Behavior)
+
+All services return consistent error responses using `@ControllerAdvice`.
+
+Example error body:
+```json
+{
+  "timestamp": "2026-01-05T18:32:11Z",
+  "path": "/patients",
+  "errorCode": "VALIDATION_ERROR",
+  "message": "lastName must not be blank"
+}
