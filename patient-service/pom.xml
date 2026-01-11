@@ -28,7 +28,7 @@
     <packaging>jar</packaging>
     
     <name>Patient Service</name>
-    <description>Patient CRUD service with Kafka event publishing</description>
+    <description>Patient CRUD service</description>
     
     <dependencies>
         <!-- Spring Boot Web - REST API -->
@@ -50,29 +50,16 @@
             <scope>runtime</scope>
         </dependency>
         
-        <!-- 
-            SPRING KAFKA
-            Provides integration with Apache Kafka for event publishing.
-            
-            WHAT IS KAFKA?
-            Kafka is a distributed event streaming platform.
-            We'll use it to publish "patient created" events that other services can consume.
-            
-            WHY USE KAFKA?
-            - Decouples services (Patient Service doesn't need to know about Notification Service)
-            - Asynchronous processing (non-blocking)
-            - Scalable (can handle high throughput)
-            - Durable (messages are persisted)
-        -->
-        <dependency>
-            <groupId>org.springframework.kafka</groupId>
-            <artifactId>spring-kafka</artifactId>
-        </dependency>
-        
         <!-- Validation -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        
+        <!-- Spring Security - For RBAC -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
         
         <!-- DevTools -->

@@ -1,141 +1,32 @@
-# ============================================================================
-# DEVPLAN PHASE 2.5: APPLICATION CONFIGURATION
-# ============================================================================
-# This file implements Phase 2.5 - Application Configuration from DEVPLAN.md
-#
-# application.yml with database connection (env vars)
-# JWT secret and expiration from environment variables
-# Service port configuration (e.g., 8081)
-# ============================================================================
-#
-# application.yml - Spring Boot Configuration File
-#
-# WHAT IS THIS FILE?
-# This file contains configuration for the Spring Boot application.
-# Spring Boot automatically loads this file when the application starts.
-#
-# YAML vs PROPERTIES:
-# - YAML is more readable and supports hierarchical structure
-# - Properties file would be: spring.datasource.url=...
-# - YAML equivalent: spring.datasource.url: ...
-#
-# CONFIGURATION SOURCES (in order of precedence):
-# 1. Command-line arguments (highest priority)
-# 2. Environment variables
-# 3. application.yml / application.properties
-# 4. Default values (lowest priority)
-
-# ============================================
-# SERVER CONFIGURATION
-# ============================================
 server:
-  # PORT: The port this service listens on
-  # Default is 8080, but we use 8081 for Auth Service
-  # This can be overridden by environment variable: SERVER_PORT=8081
-  port: ${SERVER_PORT:8081}  # Use SERVER_PORT env var, or default to 8081
+  port: ${SERVER_PORT:8081}
 
-# ============================================
-# SPRING APPLICATION CONFIGURATION
-# ============================================
 spring:
-  # APPLICATION NAME: Used for service discovery and logging
   application:
     name: auth-service
   
-  # ============================================
-  # DATASOURCE CONFIGURATION (Database Connection)
-  # ============================================
-  # Spring Boot automatically creates a DataSource bean with these settings
   datasource:
-    # URL: JDBC connection string for PostgreSQL
-    # Format: jdbc:postgresql://host:port/database
-    # ${VAR:-default} syntax: Use environment variable VAR, or "default" if not set
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres-auth:5432/auth_db}
-    
-    # USERNAME: Database username
     username: ${SPRING_DATASOURCE_USERNAME:auth_user}
-    
-    # PASSWORD: Database password
-    # IMPORTANT: In production, always use environment variables!
     password: ${SPRING_DATASOURCE_PASSWORD:change-this-password}
-    
-    # DRIVER CLASS: PostgreSQL JDBC driver
-    # Spring Boot can usually auto-detect this, but it's good to be explicit
     driver-class-name: org.postgresql.Driver
   
-  # ============================================
-  # JPA (HIBERNATE) CONFIGURATION
-  # ============================================
   jpa:
-    # HIBERNATE DDL AUTO: What to do with database schema
-    # Options:
-    # - none: Do nothing (use migrations like Flyway/Liquibase)
-    # - validate: Validate schema matches entities (production)
-    # - update: Update schema if needed (development)
-    # - create: Drop and create schema on startup (development only!)
-    # - create-drop: Create on startup, drop on shutdown (testing)
-    #
-    # For this learning project, we use "update" for convenience.
-    # In production, use "validate" with proper database migrations.
     hibernate:
-      ddl-auto: update  # Automatically update database schema based on entities
-    
-    # SHOW SQL: Log SQL queries to console (useful for debugging)
-    # Set to false in production for performance
+      ddl-auto: update
     show-sql: true
-    
-    # FORMAT SQL: Pretty-print SQL queries (easier to read)
     properties:
       hibernate:
         format_sql: true
-        # DIALECT: Tells Hibernate which SQL dialect to use
-        # PostgreSQL has some syntax differences from other databases
         dialect: org.hibernate.dialect.PostgreSQLDialect
-  
-  # ============================================
-  # SECURITY CONFIGURATION
-  # ============================================
-  security:
-    # PASSWORD ENCODER: Algorithm for hashing passwords
-    # BCrypt is the default and recommended algorithm
-    # - Strength 10 is a good balance between security and performance
-    # - Higher strength = more secure but slower
-    user:
-      password: ${ADMIN_PASSWORD:admin}  # Default admin password (change in production!)
 
-# ============================================
-# JWT CONFIGURATION
-# ============================================
 jwt:
-  # SECRET: Secret key for signing and verifying JWT tokens
-  # MUST be kept secret! Never commit to Git.
-  # Should be at least 32 characters long
-  # Generate with: openssl rand -base64 32
   secret: ${JWT_SECRET:your-super-secret-jwt-key-change-this-in-production-minimum-32-characters}
-  
-  # EXPIRATION: Token expiration time in milliseconds
-  # Default: 3600000 = 1 hour
-  # Other common values:
-  # - 900000 = 15 minutes (very secure)
-  # - 86400000 = 24 hours (more convenient)
   expiration: ${JWT_EXPIRATION:3600000}
 
-# ============================================
-# LOGGING CONFIGURATION
-# ============================================
 logging:
-  # LEVEL: What level of logs to show
-  # Levels (from most to least verbose):
-  # - TRACE: Very detailed (usually too much)
-  # - DEBUG: Detailed information (development)
-  # - INFO: General information (default, good for production)
-  # - WARN: Warning messages
-  # - ERROR: Error messages only
   level:
-    # Root logger level
     root: INFO
-    # Our application package - show DEBUG logs for our code
     com.patientmanagement.auth: DEBUG
-    # Hibernate SQL logging (if show-sql is true)
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE

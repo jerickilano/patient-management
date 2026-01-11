@@ -1,82 +1,52 @@
 package com.patientmanagement.patient.entity;
 
-// ============================================
-// DEVPLAN PHASE 4.2: PATIENT ENTITY & REPOSITORY
-// ============================================
-// This file implements Phase 4.2 - Patient Entity & Repository from DEVPLAN.md
-//
-// Patient entity: id (UUID), firstName, lastName, dateOfBirth, email (optional), createdAt
-// ============================================
-
-// ============================================
-// JPA IMPORTS
-// ============================================
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
-
-// ============================================
-// JAVA STANDARD LIBRARY IMPORTS
-// ============================================
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * PATIENT ENTITY
- * 
- * Represents a patient in the database.
- * Similar structure to User entity in Auth Service.
+ * Patient entity representing a patient record in the database.
  */
 @Entity
 @Table(name = "patients")
 public class Patient {
     
-    /**
-     * PRIMARY KEY - Patient ID (UUID)
-     */
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     
-    /**
-     * FIRST NAME
-     */
     @Column(nullable = false, length = 100)
     @NotBlank(message = "First name is required")
     private String firstName;
     
-    /**
-     * LAST NAME
-     */
     @Column(nullable = false, length = 100)
     @NotBlank(message = "Last name is required")
     private String lastName;
     
-    /**
-     * DATE OF BIRTH
-     * 
-     * @Past: Ensures the date is in the past (can't be future date)
-     */
     @Column(nullable = false)
     @NotNull(message = "Date of birth is required")
     @Past(message = "Date of birth must be in the past")
     private LocalDate dateOfBirth;
     
-    /**
-     * EMAIL (Optional)
-     * 
-     * Not all patients may have email addresses.
-     */
     @Column(length = 255)
     @Email(message = "Email must be a valid email address")
     private String email;
     
+    @Column(length = 20)
+    private String phone;
+    
     /**
-     * CREATED TIMESTAMP
+     * Tracks which user created this patient record.
+     * Populated from the X-User-Id header forwarded by the API Gateway.
      */
+    @Column(nullable = false, updatable = false)
+    private String createdByUserId;
+    
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
     
@@ -90,16 +60,14 @@ public class Patient {
     /**
      * CONSTRUCTOR
      */
-    public Patient(String firstName, String lastName, LocalDate dateOfBirth, String email) {
+    public Patient(String firstName, String lastName, LocalDate dateOfBirth, String email, String phone, String createdByUserId) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.dateOfBirth = dateOfBirth;
         this.email = email != null ? email.toLowerCase().trim() : null;
+        this.phone = phone;
+        this.createdByUserId = createdByUserId;
     }
-    
-    // ============================================
-    // GETTERS AND SETTERS
-    // ============================================
     
     public UUID getId() {
         return id;
@@ -137,6 +105,22 @@ public class Patient {
         this.email = email != null ? email.toLowerCase().trim() : null;
     }
     
+    public String getPhone() {
+        return phone;
+    }
+    
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+    
+    public String getCreatedByUserId() {
+        return createdByUserId;
+    }
+    
+    public void setCreatedByUserId(String createdByUserId) {
+        this.createdByUserId = createdByUserId;
+    }
+    
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -153,6 +137,8 @@ public class Patient {
                 ", lastName='" + lastName + '\'' +
                 ", dateOfBirth=" + dateOfBirth +
                 ", email='" + email + '\'' +
+                ", phone='" + phone + '\'' +
+                ", createdByUserId='" + createdByUserId + '\'' +
                 ", createdAt=" + createdAt +
                 '}';
     }

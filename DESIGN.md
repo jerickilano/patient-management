@@ -14,10 +14,11 @@ The system is intentionally scoped to be small but realistic, focusing on clean 
 ### In Scope
 
 - User authentication and JWT issuance
-- Basic patient CRUD (create, read, list)
-- Event publishing when a patient is created
-- A simple consumer that reacts to those events
+- Patient CRUD with pagination, sorting, and filtering
+- Role-Based Access Control (RBAC): USER can create/read, ADMIN can full CRUD
+- Identity propagation from gateway to services via headers (X-User-Id, X-User-Role)
 - Routing and auth enforcement at the gateway layer
+- Consistent error handling with @ControllerAdvice
 - Running all services locally with Docker Compose
 
 ### Out of Scope (for now)
@@ -49,14 +50,11 @@ The system follows a **microservices** architecture with a single entry point:
   - Stores users and hashed passwords in PostgreSQL
 
 - **Patient Service**
-  - Exposes REST APIs for patient CRUD
-  - Stores patient records in PostgreSQL
-  - Publishes `PATIENT_CREATED` events to Kafka
-  - Exposes a small **gRPC** API to demonstrate binary, strongly-typed service-to-service calls
-
-- **Notification Service**
-  - Subscribes to `PATIENT_CREATED` events from Kafka
-  - Simulates downstream behavior by logging a “welcome notification” for the patient
+  - Exposes REST APIs for patient CRUD with pagination, sorting, and filtering
+  - Enforces RBAC rules (USER: create/read, ADMIN: full CRUD)
+  - Stores patient records in PostgreSQL with audit fields (createdByUserId)
+  - Reads identity from headers forwarded by gateway (X-User-Id, X-User-Role)
+  - Consistent error handling with @ControllerAdvice
 
 All services are containerized and run together via `docker-compose.yml`.
 
@@ -65,15 +63,15 @@ All services are containerized and run together via `docker-compose.yml`.
 
 ---
 
-## 4. Data & Messaging
+## 4. Data Model
 
-### Data Model (initial)
+### Data Model
 
 **User (Auth Service)**
 - `id` (UUID, primary key)
 - `email` (unique)
 - `password_hash`
-- `role` (e.g. `ADMIN`, `STAFF`)
+- `role` (e.g. `USER`, `ADMIN`)
 - `created_at`
 
 **Patient (Patient Service)**
@@ -82,17 +80,6 @@ All services are containerized and run together via `docker-compose.yml`.
 - `last_name`
 - `date_of_birth`
 - `email` (optional)
+- `phone` (optional)
+- `created_by_user_id` (for auditing - from X-User-Id header)
 - `created_at`
-
-### Events
-
-**Topic:** `patient-created`
-
-**Payload (JSON or Avro-like structure, simplified):**
-```json
-{
-  "patientId": "uuid",
-  "firstName": "Alice",
-  "lastName": "Nguyen",
-  "createdAt": "2025-01-01T12:00:00Z"
-}

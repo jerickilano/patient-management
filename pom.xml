@@ -64,8 +64,8 @@
     -->
     <name>Patient Management Microservices</name>
     <description>
-        A learning project demonstrating microservices architecture with Spring Boot,
-        featuring API Gateway, Auth Service, Patient Service, and Notification Service.
+        A production-ready backend system for managing patients, built with Spring Boot.
+        Features API Gateway, Auth Service, and Patient Service with JWT authentication and RBAC.
     </description>
     
     <!-- 
@@ -77,7 +77,6 @@
         <module>api-gateway</module>
         <module>auth-service</module>
         <module>patient-service</module>
-        <module>notification-service</module>
     </modules>
     
     <!-- 

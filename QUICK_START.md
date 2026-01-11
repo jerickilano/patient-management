@@ -52,16 +52,12 @@ curl -X POST http://localhost:8080/auth/register \
 curl -X POST http://localhost:8080/patients \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"firstName":"Alice","lastName":"Nguyen","dateOfBirth":"1995-06-01"}'
+  -d '{"firstName":"Alice","lastName":"Nguyen","dateOfBirth":"1995-06-01","email":"alice@example.com","phone":"555-1234"}'
 ```
 
-### 4. Check Notification Service Logs
+### 4. Verify Patient Was Created
 
-```bash
-docker compose logs notification-service | tail -20
-```
-
-You should see the welcome notification message!
+You can verify the patient was created by checking the response or listing all patients.
 
 ## 🛑 Stop the Application
 
@@ -143,8 +139,6 @@ POSTGRES_PATIENT_DB=patient_db
 POSTGRES_PATIENT_USER=patient_user
 POSTGRES_PATIENT_PASSWORD=change-this-password
 
-# Kafka Configuration
-KAFKA_BOOTSTRAP_SERVERS=kafka:9092
 
 # Service URLs
 AUTH_SERVICE_URL=http://auth-service:8081
@@ -171,9 +165,8 @@ docker compose up --build -d
 ```
 
 **What this does:**
-- Builds Docker images for all 4 services (API Gateway, Auth Service, Patient Service, Notification Service)
+- Builds Docker images for all services (API Gateway, Auth Service, Patient Service)
 - Starts PostgreSQL databases (2 separate databases)
-- Starts Kafka and Zookeeper
 - Starts all microservices
 - Sets up networking between services
 
@@ -181,7 +174,6 @@ docker compose up --build -d
 - `Started AuthServiceApplication`
 - `Started GatewayApplication`
 - `Started PatientServiceApplication`
-- `Started NotificationServiceApplication`
 
 #### Step 3: Verify Services Are Running
 
@@ -191,15 +183,12 @@ In a new terminal, check if all containers are running:
 docker compose ps
 ```
 
-You should see 7 containers running:
+You should see 5 containers running:
 - `postgres-auth`
 - `postgres-patient`
-- `zookeeper`
-- `kafka`
 - `api-gateway`
 - `auth-service`
 - `patient-service`
-- `notification-service`
 
 Check service health:
 
@@ -286,16 +275,6 @@ curl -X POST http://localhost:8080/patients \
 }
 ```
 
-**Check Notification Service logs** - you should see:
-```
-============================================================
-NOTIFICATION SERVICE - PATIENT CREATED EVENT
-============================================================
-Sending welcome notification to patient 550e8400... (Alice Nguyen)
-Action: Sending welcome email and SMS
-Status: Notification queued for delivery
-============================================================
-```
 
 #### Step 4: Get Patient by ID
 
@@ -306,16 +285,46 @@ curl -X GET http://localhost:8080/patients/<PATIENT_ID> \
 
 Replace `<PATIENT_ID>` with the `id` from the create response.
 
-#### Step 5: List All Patients (with Pagination)
+#### Step 5: List All Patients (with Pagination, Sorting, and Filtering)
 
 ```bash
 # Get first page (20 patients per page by default)
 curl -X GET "http://localhost:8080/patients?page=0&size=10" \
   -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
 
-# Get second page
-curl -X GET "http://localhost:8080/patients?page=1&size=10" \
+# Get second page with sorting
+curl -X GET "http://localhost:8080/patients?page=1&size=10&sort=lastName,asc" \
   -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+
+# Filter by last name
+curl -X GET "http://localhost:8080/patients?lastName=Smith" \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+
+# Filter by first and last name with sorting
+curl -X GET "http://localhost:8080/patients?firstName=John&lastName=Doe&sort=createdAt,desc" \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+
+#### Step 6: Update Patient (ADMIN only)
+
+```bash
+curl -X PUT http://localhost:8080/patients/<PATIENT_ID> \
+  -H "Authorization: Bearer <YOUR_ADMIN_JWT_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "firstName": "Alice",
+    "lastName": "Nguyen",
+    "dateOfBirth": "1995-06-01",
+    "email": "alice.updated@example.com",
+    "phone": "555-5678"
+  }'
+```
+
+#### Step 7: Delete Patient (ADMIN only)
+
+```bash
+curl -X DELETE http://localhost:8080/patients/<PATIENT_ID> \
+  -H "Authorization: Bearer <YOUR_ADMIN_JWT_TOKEN>"
 ```
 
 ### Viewing Logs
@@ -329,7 +338,6 @@ docker compose logs -f
 # Specific service
 docker compose logs -f auth-service
 docker compose logs -f patient-service
-docker compose logs -f notification-service
 docker compose logs -f api-gateway
 ```
 
@@ -358,7 +366,6 @@ docker compose down -v
 2. **Check port conflicts:**
    - Port 8080 (Gateway), 8081 (Auth), 8082 (Patient) must be available
    - Ports 5433, 5434 (PostgreSQL) must be available
-   - Port 9092 (Kafka) must be available
 
 3. **Check logs for errors:**
    ```bash
@@ -377,11 +384,6 @@ docker compose down -v
 - Token expires after 1 hour (default) - login again to get a new token
 - Check JWT_SECRET in `.env` matches between Auth Service and API Gateway
 
-#### Kafka Connection Errors
-
-- Wait for Kafka to fully start (can take 30+ seconds)
-- Check Zookeeper is running: `docker compose ps zookeeper`
-- Check Kafka logs: `docker compose logs kafka`
 
 #### "Service Unavailable" or Connection Refused
 
@@ -395,7 +397,7 @@ To run services individually (without Docker):
 
 1. Start infrastructure only:
    ```bash
-   docker compose up postgres-auth postgres-patient kafka zookeeper
+   docker compose up postgres-auth postgres-patient
    ```
 
 2. Run services locally with Maven:
@@ -404,7 +406,6 @@ To run services individually (without Docker):
    cd auth-service && mvn spring-boot:run
    cd api-gateway && mvn spring-boot:run
    cd patient-service && mvn spring-boot:run
-   cd notification-service && mvn spring-boot:run
    ```
 
    **Note:** Update `application.yml` files to use `localhost` instead of service names for local development.

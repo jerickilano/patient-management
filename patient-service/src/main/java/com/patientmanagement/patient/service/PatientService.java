@@ -1,22 +1,15 @@
 package com.patientmanagement.patient.service;
 
-// ============================================
-// DEVPLAN PHASE 4.4: REST API ENDPOINTS
-// ============================================
-// This file implements Phase 4.4 - REST API Endpoints from DEVPLAN.md
-//
-// Business logic for:
-// - POST /patients: Create patient, save to DB, publish PATIENT_CREATED event
-// - GET /patients/{id}: Retrieve patient by ID
-// - GET /patients: List patients with pagination (page, size)
-// ============================================
+// Patient Service - handles all business logic for patient operations
 
 // ============================================
 // SPRING FRAMEWORK IMPORTS
 // ============================================
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,13 +29,11 @@ import com.patientmanagement.patient.entity.Patient;
 import com.patientmanagement.patient.repository.PatientRepository;
 
 /**
- * PATIENT SERVICE - Business Logic Layer
+ * Patient Service
  * 
- * Handles all business logic for patient operations:
- * - Creating patients
- * - Retrieving patients
- * - Listing patients with pagination
- * - Publishing events to Kafka
+ * This service handles all the business logic for patient operations.
+ * It's responsible for creating, retrieving, updating, and deleting patients,
+ * as well as handling pagination, sorting, and filtering.
  */
 @Service
 public class PatientService {
@@ -54,106 +45,159 @@ public class PatientService {
     private PatientRepository patientRepository;
     
     /**
-     * EVENT PUBLISHER - For publishing Kafka events
-     */
-    @Autowired
-    private PatientEventPublisher eventPublisher;
-    
-    /**
-     * CREATE PATIENT
+     * Creates a new patient record in the database.
      * 
-     * Creates a new patient and publishes a "patient created" event to Kafka.
-     * 
-     * @Transactional: Ensures the entire operation is atomic.
-     * If event publishing fails, we might want to rollback (depending on requirements).
-     * For now, we'll let the transaction commit even if event publishing fails
-     * (event publishing is best-effort).
+     * The @Transactional annotation ensures that if anything goes wrong,
+     * the entire operation is rolled back. We also capture who created
+     * the patient for auditing purposes.
      * 
      * @param request Patient data from the API request
-     * @return PatientResponse with created patient data
+     * @param createdByUserId User ID from the X-User-Id header (for auditing)
+     * @return PatientResponse with the created patient data
      */
     @Transactional
-    public PatientResponse createPatient(PatientRequest request) {
-        // STEP 1: Create Patient entity from request DTO
+    public PatientResponse createPatient(PatientRequest request, String createdByUserId) {
+        // Create a new Patient entity from the request data
         Patient patient = new Patient(
             request.getFirstName(),
             request.getLastName(),
             request.getDateOfBirth(),
-            request.getEmail()
+            request.getEmail(),
+            request.getPhone(),
+            createdByUserId
         );
         
-        // STEP 2: Set creation timestamp
-        // (In a real app, you might use @CreationTimestamp annotation)
+        // Set the creation timestamp
         patient.setCreatedAt(LocalDateTime.now());
         
-        // STEP 3: Save patient to database
-        // JPA will:
-        // - Generate UUID for id
-        // - Insert row into patients table
+        // Save to database - JPA will automatically generate a UUID for the id
         Patient savedPatient = patientRepository.save(patient);
         
-        // STEP 4: Publish event to Kafka
-        // This is asynchronous - doesn't block the response
-        // Other services (like Notification Service) will consume this event
-        eventPublisher.publishPatientCreated(
-            savedPatient.getId().toString(),
-            savedPatient.getFirstName(),
-            savedPatient.getLastName(),
-            savedPatient.getCreatedAt().toString()
-        );
-        
-        // STEP 5: Convert entity to response DTO and return
+        // Convert to response DTO and return
         return toResponse(savedPatient);
     }
     
     /**
-     * GET PATIENT BY ID
-     * 
      * Retrieves a single patient by their unique ID.
      * 
      * @param id Patient's UUID
-     * @return Optional<PatientResponse> - empty if patient not found
+     * @return Optional containing the patient if found, empty otherwise
      */
     @Transactional(readOnly = true)
     public Optional<PatientResponse> getPatientById(UUID id) {
-        // Find patient by ID
         Optional<Patient> patient = patientRepository.findById(id);
-        
-        // Convert to response DTO if found
         return patient.map(this::toResponse);
     }
     
     /**
-     * LIST ALL PATIENTS (WITH PAGINATION)
+     * Retrieves a page of patients with support for pagination, sorting, and filtering.
      * 
-     * Retrieves a page of patients with pagination support.
+     * This method handles all the complexity of parsing sort parameters and applying
+     * filters. If no filters are provided, it just returns all patients with pagination.
      * 
-     * PAGINATION BENEFITS:
-     * - Performance: Don't load all patients at once
-     * - User experience: Show data in manageable chunks
-     * - Scalability: Works with millions of records
-     * 
-     * @param pageable Pagination information (page number, size, sorting)
+     * @param page Page number (0-indexed, so page 0 is the first page)
+     * @param size Number of records per page
+     * @param sort Sort specification like "createdAt,desc" or "lastName,asc"
+     * @param firstName Optional filter for first name (case-insensitive partial match)
+     * @param lastName Optional filter for last name (case-insensitive partial match)
      * @return Page of PatientResponse objects
      */
     @Transactional(readOnly = true)
-    public Page<PatientResponse> getAllPatients(Pageable pageable) {
-        // Get page of patients from repository
-        Page<Patient> patients = patientRepository.findAll(pageable);
+    public Page<PatientResponse> getAllPatients(int page, int size, String sort, String firstName, String lastName) {
+        // Parse the sort parameter - it should be in format "field,direction"
+        // like "createdAt,desc" or "lastName,asc"
+        Sort sortObj = Sort.unsorted();
+        if (sort != null && !sort.isEmpty()) {
+            String[] sortParts = sort.split(",");
+            if (sortParts.length == 2) {
+                String field = sortParts[0].trim();
+                Sort.Direction direction = sortParts[1].trim().equalsIgnoreCase("desc") 
+                    ? Sort.Direction.DESC 
+                    : Sort.Direction.ASC;
+                sortObj = Sort.by(direction, field);
+            } else if (sortParts.length == 1) {
+                // If no direction specified, default to ascending
+                sortObj = Sort.by(Sort.Direction.ASC, sortParts[0].trim());
+            }
+        } else {
+            // Default to sorting by creation date, newest first
+            sortObj = Sort.by(Sort.Direction.DESC, "createdAt");
+        }
         
-        // Convert each Patient entity to PatientResponse DTO
-        // map() transforms each element in the page
+        // Create the Pageable object with pagination and sorting info
+        Pageable pageable = PageRequest.of(page, size, sortObj);
+        
+        // Get the page of patients, applying filters if provided
+        Page<Patient> patients;
+        if ((firstName != null && !firstName.isEmpty()) || (lastName != null && !lastName.isEmpty())) {
+            // Use the custom filtered query
+            patients = patientRepository.findByFilters(
+                firstName != null && !firstName.isEmpty() ? firstName : null,
+                lastName != null && !lastName.isEmpty() ? lastName : null,
+                pageable
+            );
+        } else {
+            // No filters, just get all patients with pagination
+            patients = patientRepository.findAll(pageable);
+        }
+        
+        // Convert each Patient entity to a PatientResponse DTO
         return patients.map(this::toResponse);
     }
     
     /**
-     * CONVERT ENTITY TO RESPONSE DTO
+     * Updates an existing patient record.
      * 
-     * Helper method to convert Patient entity to PatientResponse DTO.
-     * This separates internal entity structure from API response structure.
+     * @param id Patient ID to update
+     * @param request Updated patient data
+     * @return Optional containing the updated patient if found, empty otherwise
+     */
+    @Transactional
+    public java.util.Optional<PatientResponse> updatePatient(UUID id, PatientRequest request) {
+        // Find patient by ID
+        java.util.Optional<Patient> patientOpt = patientRepository.findById(id);
+        
+        if (patientOpt.isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        
+        Patient patient = patientOpt.get();
+        
+        // Update fields
+        patient.setFirstName(request.getFirstName());
+        patient.setLastName(request.getLastName());
+        patient.setDateOfBirth(request.getDateOfBirth());
+        patient.setEmail(request.getEmail());
+        patient.setPhone(request.getPhone());
+        
+        // Save updated patient
+        Patient updatedPatient = patientRepository.save(patient);
+        
+        // Convert to response DTO
+        return java.util.Optional.of(toResponse(updatedPatient));
+    }
+    
+    /**
+     * Deletes a patient record by ID.
      * 
-     * @param patient Patient entity
-     * @return PatientResponse DTO
+     * @param id Patient ID to delete
+     * @return true if the patient was deleted, false if not found
+     */
+    @Transactional
+    public boolean deletePatient(UUID id) {
+        if (patientRepository.existsById(id)) {
+            patientRepository.deleteById(id);
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Helper method to convert a Patient entity to a PatientResponse DTO.
+     * This keeps our internal database structure separate from what we expose in the API.
+     * 
+     * @param patient Patient entity from the database
+     * @return PatientResponse DTO for the API
      */
     private PatientResponse toResponse(Patient patient) {
         return new PatientResponse(
@@ -162,6 +206,7 @@ public class PatientService {
             patient.getLastName(),
             patient.getDateOfBirth(),
             patient.getEmail(),
+            patient.getPhone(),
             patient.getCreatedAt()
         );
     }

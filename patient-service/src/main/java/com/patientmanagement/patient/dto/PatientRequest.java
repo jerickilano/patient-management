@@ -1,24 +1,13 @@
 package com.patientmanagement.patient.dto;
 
-// ============================================
-// DEVPLAN PHASE 4.4: REST API ENDPOINTS
-// ============================================
-// This file implements Phase 4.4 - REST API Endpoints from DEVPLAN.md
-// DTO for patient creation/update requests
-// ============================================
-
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
-
 import java.time.LocalDate;
 
 /**
- * PATIENT REQUEST DTO
- * 
- * Data transfer object for creating/updating patients.
- * Used in POST /patients and PUT /patients/{id} endpoints.
+ * Request DTO for creating or updating a patient.
  */
 public class PatientRequest {
     
@@ -33,26 +22,20 @@ public class PatientRequest {
     private LocalDate dateOfBirth;
     
     @Email(message = "Email must be a valid email address")
-    private String email;  // Optional
+    private String email;
     
-    // ============================================
-    // CONSTRUCTORS
-    // ============================================
+    private String phone;
     
     public PatientRequest() {
-        // Intentionally empty
     }
     
-    public PatientRequest(String firstName, String lastName, LocalDate dateOfBirth, String email) {
+    public PatientRequest(String firstName, String lastName, LocalDate dateOfBirth, String email, String phone) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.dateOfBirth = dateOfBirth;
         this.email = email;
+        this.phone = phone;
     }
-    
-    // ============================================
-    // GETTERS AND SETTERS
-    // ============================================
     
     public String getFirstName() {
         return firstName;
@@ -84,5 +67,13 @@ public class PatientRequest {
     
     public void setEmail(String email) {
         this.email = email != null ? email.toLowerCase().trim() : null;
+    }
+    
+    public String getPhone() {
+        return phone;
+    }
+    
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 }
