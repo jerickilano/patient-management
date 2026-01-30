@@ -39,7 +39,10 @@ API Gateway  ──▶ Auth Service (login / validate JWT)
 
 ### Diagrams
 
+## System Architecture Diagram
 ![System Diagram](./diagrams/diagram.jpeg)
+## Infrastructure Architecture Diagram
+![Infrastructure Diagram](./diagrams/infra.jpeg)
 
 
 ## Services
