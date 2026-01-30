@@ -10,6 +10,7 @@ A Java 21 / Spring Boot microservices system for **Patient CRUD** with a **gatew
 - **Billing Service (gRPC)** for fast service-to-service calls; patient creation triggers billing account creation.
 - **Analytics Service (Kafka)** consumes patient events asynchronously (event-driven).
 - **Dockerized local stack** with services on an internal Docker network (only the gateway needs to be exposed publicly).
+- **AWS deployment architecture (simulated locally)** using **LocalStack** + **Java AWS CDK** to synthesize **CloudFormation** and provision a **VPC**, **ECS Fargate** services, an internet-facing **ALB** fronting the API Gateway, and managed backends (**RDS PostgreSQL**, **MSK Kafka**).
 
 ## Contents
 
